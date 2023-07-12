@@ -1,0 +1,170 @@
+# A LifetimeExperiment creates a single unstable isotope, which remains in the detector for
+# at most 0.2 seconds (le_max_time). Provided it decays, the time it takes to decay is reported.
+# The timing measurement is characterized by a resolution and bias.
+# There is also a background process that produces uniform times (-0.2,0.2)
+# Reported times are between -0.2 and 0.2 seconds (collecting most of the decays). A fixed number of
+# events are returned: counting_time/le_max_time
+
+
+import requests
+import numpy as np
+from scipy import stats
+
+
+class LifetimeExperiment:
+    def __init__(self, student_id=0):
+        self.student_id = student_id
+        self.counting_time = 10.
+        self.le_max_time = 0.2
+        self.times = None
+
+        print("Lab lifetime experiment built for student ID " + str(self.student_id) + \
+              ". Default counting time is", self.counting_time, "seconds.")
+
+    def set_counting_time(self, counting_time):
+        if counting_time > 30.:
+            print('Counting time not changed:', counting_time, 'seconds is too long to wait! (30 seconds max)')
+        elif counting_time < 0.:
+            print('Error: Counting time must not be negative')
+        else:
+            self.counting_time = counting_time
+
+    def get_counting_time(self):
+        return self.counting_time
+
+    def get_times(self):
+        return self.times
+
+    def start(self):
+        success = True
+        try:
+            i_counting_time = int(self.counting_time * 1000000)
+            i_le_max_time = int(self.le_max_time * 1000000)
+            command = 'get_times/' + str(self.student_id) + '/' + str(i_counting_time) + '/' + str(i_le_max_time)
+            response = requests.get('http://dklab.ipypm.ca/' + command)
+            self.times = response.json()['times']
+        except requests.exceptions.RequestException as error:
+            print('Error retrieving data from the detector:')
+            print()
+            print(error)
+            self.times = []
+            success = False
+
+        return success
+
+
+class SimulatedLifetimeExperiment(LifetimeExperiment):
+    def __init__(self, isotope_lifetime=0.05, time_resolution=0., time_offset=0., background_fraction=0.):
+        self.counting_time = 10.
+        self.le_max_time = 0.2
+        self.le_isotope_lifetime = isotope_lifetime
+        self.le_time_resolution = time_resolution
+        self.le_time_offset = time_offset
+        self.le_background_fraction = background_fraction
+        print("Simulated lifetime experiment built. Counting time =", self.counting_time,
+              "Time resolution =", time_resolution, "Time offset=", time_offset,
+              "Background fraction =", background_fraction)
+
+    def set_counting_time(self, counting_time):
+        if counting_time < 0.:
+            print('Error: Counting time must not be negative')
+        else:
+            self.counting_time = counting_time
+
+    def set_isotope_lifetime(self, isotope_lifetime):
+        if 0. <= isotope_lifetime <= self.le_max_time:
+            self.le_isotope_lifetime = isotope_lifetime
+        else:
+            print('Error: Isotope lifetime must be between 0. and', self.le_max_time)
+
+    def set_time_resolution(self, time_resolution):
+        if 0. <= time_resolution <= self.le_max_time:
+            self.le_time_resolution = time_resolution
+        else:
+            print('Error: Time resolution must be between 0. and', self.le_max_time)
+
+    def set_time_offset(self, time_offset):
+        if -self.le_max_time <= time_offset <= self.le_max_time:
+            self.le_time_offset = time_offset
+        else:
+            print('Error: Time offset must be between', -self.le_max_time, 'and', self.le_max_time)
+
+    def set_background_fraction(self, background_fraction):
+        if 0. <= background_fraction <= 1.:
+            self.le_background_fraction = background_fraction
+        else:
+            print('Error: Background fraction must be between 0. and 1.')
+
+    def start(self):
+        print('To get data from the simulated detector, use the "get_data" method.')
+
+    def get_data(self, reps=2):
+        try:
+            i_counting_time = int(self.counting_time * 1000000)
+            i_le_max_time = int(self.le_max_time * 1000000)
+            i_le_isotope_lifetime = int(self.le_isotope_lifetime * 1000000)
+            i_le_time_resolution = int(self.le_time_resolution * 1000000)
+            i_le_time_offset = int(self.le_time_offset * 1000000)
+            i_le_background_fraction = int(self.le_background_fraction * 1000000)
+
+            command = 'get_sim_times/' + str(self.student_id) + '/' + str(i_counting_time) + '/' + str(i_le_max_time) + \
+                      '/' + str(i_le_isotope_lifetime) + '/' + str(i_le_time_resolution) + \
+                      '/' + str(i_le_time_offset) + '/' + str(i_le_background_fraction)
+            response = requests.get('http://dklab.ipypm.ca/' + command)
+            times = response.json()['sim_times']
+
+        except requests.exceptions.RequestException as error:
+            print('Error retrieving data from the simulator:')
+            print()
+            print(error)
+            times = []
+        return times
+
+    def get_pdf(self, observed_time):
+        # Calculate the pdf
+        bf = self.le_background_fraction
+        uniform_pdf = 0.
+        special_pdf = 0.
+        if -self.le_max_time <= observed_time < self.le_max_time:
+            # Uniform
+            uniform_pdf = 1. / (2. * self.le_max_time)
+
+            # Convolution of exponential and normal (CUTOFF AT +/- le_max_time, so MUST renormalize)
+            # catch issues where pdf might be very small
+            if observed_time - self.le_time_offset > -5. * self.le_time_resolution:
+                if self.le_time_resolution == 0.:  # pure exponential
+                    # integral over all possible observations:
+                    cdfs = stats.expon.cdf([-self.le_max_time, self.le_max_time], self.le_time_offset,
+                                           self.le_isotope_lifetime)
+                    integral = cdfs[1] - cdfs[0]
+
+                    special_pdf = stats.expon.pdf(observed_time, self.le_time_offset,
+                                                  self.le_isotope_lifetime) / integral
+                else:  # exponential convoluted with normal
+                    # integral over possible range
+                    cdfs = stats.exponnorm.cdf([-self.le_max_time, self.le_max_time],
+                                               self.le_isotope_lifetime / self.le_time_resolution,
+                                               self.le_time_offset, self.le_time_resolution)
+                    integral = cdfs[1] - cdfs[0]
+
+                    special_pdf = stats.exponnorm.pdf(observed_time, self.le_isotope_lifetime / self.le_time_resolution,
+                                                      self.le_time_offset, self.le_time_resolution) / integral
+
+        return bf * uniform_pdf + (1. - bf) * special_pdf
+
+    def get_log_likelihood(self, times):
+        log_lik = -np.Inf
+        zero_pdf = False
+
+        sum_log_pdf = 0.
+        for observed_time in times:
+            pdf = self.get_pdf(observed_time)
+            if pdf <= 0.:
+                zero_pdf = True
+                break
+            sum_log_pdf += np.log(pdf)
+
+        if not zero_pdf:
+            log_lik = sum_log_pdf
+
+        return log_lik
