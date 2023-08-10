@@ -13,7 +13,7 @@ class RadiationCounter:
         self.source = None
         self.count = 0
         self.lab_source = RadioactiveSource(0., lab_source=True)
-        print("Lab radiation counter built for student ID" + str(self.student_id) + \
+        print("Lab radiation counter built for student ID" + str(self.student_id) +
               ". Default counting time is", self.counting_time, "seconds.")
 
     def set_counting_time(self, counting_time):
@@ -102,8 +102,8 @@ class SimulatedRadiationCounter(RadiationCounter):
             i_activity = int(self.source.activity * 1000000)
             i_background = int(self.source.background * 1000000)
             i_efficiency = int(self.source.efficiency * 1000000)
-            command = 'get_sim_counts/' + str(self.student_id) + '/' + str(i_counting_time) + '/' +\
-                      str(i_activity) + '/' + str(i_background) + '/' + str(i_efficiency)
+            command = 'get_sim_counts/' + str(self.student_id) + '/' + str(i_counting_time) + '/' + \
+                      str(reps) + '/' + str(i_activity) + '/' + str(i_background) + '/' + str(i_efficiency)
             response = requests.get('http://dklab.ipypm.ca/' + command)
             counts = response.json()['counts']
         except requests.exceptions.RequestException as error:
