@@ -10,13 +10,14 @@ class RadiationCounter:
         self.counting_time = 10.
         self.source = None  # will be a radioactive source if one is inserted into the counter
         self.lab_source = False  # specifies whether the lab source is inside the counter (only one source at a time)
-        self.count = 0
+        self.count = -1
+        self.success = False  # specifies whether the last measurement was successful
 
-        print("Lab radiation counter built for student ID" + str(self.student_id) +
+        print("Lab radiation counter built for student ID: " + str(self.student_id) +
               ". Default counting time is", self.counting_time, "seconds.")
 
     def set_counting_time(self, counting_time):
-        if counting_time > 30.:
+        if counting_time > 30.:  # If this is changed, also update text below and dklab-server
             print('Counting time not changed:', counting_time, 'seconds is too long to wait! (30 seconds max)')
         elif counting_time < 0.:
             print('Error: Counting time must not be negative. Counting time is not changed.')
@@ -55,29 +56,34 @@ class RadiationCounter:
     def get_count(self):
         return self.count
 
+    def get_success(self):
+        return self.success
+
     def start(self):
-        success = True
+        print('Measurement has begun. Please wait',self.counting_time,'seconds.')
+        self.success = True
 
         i_counting_time = int(self.counting_time * 1000000)
-        if self.source is None:
-            i_activity = 0
-        elif self.source.lab_source:
+        if self.source is not None:
+            i_activity = int(self.source.activity * 1000000)
+        elif self.lab_source:
             i_activity = -1
         else:
-            i_activity = int(self.source.activity * 1000000)
+            i_activity = 0
 
         try:
             command = 'get_counts/' + str(self.student_id) + '/' + str(i_counting_time) + '/' + str(i_activity)
             response = requests.get('http://dklab.ipypm.ca/' + command)
-            self.count = int(response)
+            self.count = response.json()['counts']
         except requests.exceptions.RequestException as error:
             print('Error retrieving data from the detector:')
             print()
             print(error)
             self.count = -1
-            success = False
+            self.success = False
 
-        return success
+        if self.success:
+            print('Number of counts observed in', self.counting_time, 'seconds was',self.count)
 
 
 class SimulatedRadiationCounter:

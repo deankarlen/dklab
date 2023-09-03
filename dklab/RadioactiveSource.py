@@ -3,7 +3,7 @@
 class RadioactiveSource:
     def __init__(self, activity):
         self.activity = None
-        self.max_calibration_source_activity = 30.
+        self.max_calibration_source_activity = 30.  # if this is changed, also change dklab-server
         self.set_activity(activity)
 
     def set_activity(self, activity):

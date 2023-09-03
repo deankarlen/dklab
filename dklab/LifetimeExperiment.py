@@ -17,6 +17,7 @@ class LifetimeExperiment:
         self.counting_time = 10.
         self.le_max_time = 0.2
         self.times = None
+        self.success = False  # specifies whether the last measurement was successful
 
         print("Lab lifetime experiment built for student ID " + str(self.student_id) + \
               ". Default counting time is", self.counting_time, "seconds.")
@@ -36,7 +37,7 @@ class LifetimeExperiment:
         return self.times
 
     def start(self):
-        success = True
+        self.success = True
         try:
             i_counting_time = int(self.counting_time * 1000000)
             i_le_max_time = int(self.le_max_time * 1000000)
@@ -48,10 +49,11 @@ class LifetimeExperiment:
             print()
             print(error)
             self.times = []
-            success = False
+            self.success = False
 
-        return success
-
+        if self.success:
+            print('Measurement was successful. Number of time observed in', self.counting_time, 'seconds was',
+                  len(self.times))
 
 class SimulatedLifetimeExperiment(LifetimeExperiment):
     def __init__(self, isotope_lifetime=0.05, time_resolution=0., time_offset=0., background_fraction=0.):
@@ -98,27 +100,26 @@ class SimulatedLifetimeExperiment(LifetimeExperiment):
     def start(self):
         print('To get data from the simulated detector, use the "get_data" method.')
 
-    def get_data(self, reps=2):
-        try:
-            i_counting_time = int(self.counting_time * 1000000)
-            i_le_max_time = int(self.le_max_time * 1000000)
-            i_le_isotope_lifetime = int(self.le_isotope_lifetime * 1000000)
-            i_le_time_resolution = int(self.le_time_resolution * 1000000)
-            i_le_time_offset = int(self.le_time_offset * 1000000)
-            i_le_background_fraction = int(self.le_background_fraction * 1000000)
-
-            command = 'get_sim_times/' + str(self.student_id) + '/' + str(i_counting_time) + '/' + str(i_le_max_time) + \
-                      '/' + str(i_le_isotope_lifetime) + '/' + str(i_le_time_resolution) + \
-                      '/' + str(i_le_time_offset) + '/' + str(i_le_background_fraction)
-            response = requests.get('http://dklab.ipypm.ca/' + command)
-            times = response.json()['sim_times']
-
-        except requests.exceptions.RequestException as error:
-            print('Error retrieving data from the simulator:')
-            print()
-            print(error)
-            times = []
-        return times
+    def get_data(self):
+        n_events = int(self.counting_time / self.le_max_time)
+        times = []
+        for i in range(n_events):
+            if stats.uniform.rvs() < self.le_background_fraction:
+                # a background event
+                uniform_time = self.le_max_time * 2. * (stats.uniform.rvs() - 0.5)
+                times.append(uniform_time)
+            else:
+                # produce a real event within the acceptable range
+                in_range = False
+                observed_time = None
+                while not in_range:
+                    decay_time = stats.expon.rvs(scale=self.le_isotope_lifetime)
+                    # add offset and resolution
+                    observed_time = decay_time + stats.norm.rvs(self.le_time_offset, self.le_time_resolution)
+                    in_range = -self.le_max_time < observed_time < self.le_max_time
+                times.append(observed_time)
+        self.times = times
+        return
 
     def get_pdf(self, observed_time):
         # Calculate the pdf
