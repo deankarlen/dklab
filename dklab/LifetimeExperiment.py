@@ -37,6 +37,7 @@ class LifetimeExperiment:
         return self.times
 
     def start(self):
+        print('Measurement has begun. Please wait', self.counting_time, 'seconds.')
         self.success = True
         try:
             i_counting_time = int(self.counting_time * 1000000)
