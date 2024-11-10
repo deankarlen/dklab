@@ -9,3 +9,4 @@ This package provides a simulated lab setup for a radiation detector and lifetim
 * open the interactive python notebook: counter.ipynb
 * execute each cell to see an example of how to use the package (use your actual student ID number)
 * explore the code in the dklab folder, but do not change any code there
+* to modify experiment parameters, use the methods in the classes, do not modify the attributes directly
