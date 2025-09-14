@@ -5,15 +5,16 @@ from scipy import stats
 
 
 class RadiationCounter:
-    def __init__(self, student_id=0):
+    def __init__(self, student_id=0, model=0):
         self.student_id = int(student_id)
+        self.model = max(0,min(3,int(model))) # only models 0, 1, 2, and 3 are defined
         self.counting_time = 10.
         self.source = None  # will be a radioactive source if one is inserted into the counter
         self.lab_source = False  # specifies whether the lab source is inside the counter (only one source at a time)
         self.count = -1
         self.success = False  # specifies whether the last measurement was successful
 
-        print("Lab radiation counter built for student ID: " + str(self.student_id) +
+        print("Lab radiation counter model " + str(self.model) + " built for student ID: " + str(self.student_id) +
               ". Default counting time is", self.counting_time, "seconds.")
 
     def set_counting_time(self, counting_time):
@@ -72,7 +73,8 @@ class RadiationCounter:
             i_activity = 0
 
         try:
-            command = 'get_counts/' + str(self.student_id) + '/' + str(i_counting_time) + '/' + str(i_activity)
+            command = ('get_counts/' + str(self.student_id) + '/' + str(self.model) + '/' +
+                       str(i_counting_time) + '/' + str(i_activity))
             response = requests.get('http://dklab.ipypm.ca/' + command)
             self.count = response.json()['counts']
         except requests.exceptions.RequestException as error:
