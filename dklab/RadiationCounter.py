@@ -109,6 +109,9 @@ class SimulatedRadiationCounter:
     def insert_calibration_source(self, source):
         self.source = source
 
+    def remove_source(self):
+        self.source = None
+
     def set_efficiency(self, efficiency):
         if 0. <= efficiency <= 1.:
             self.efficiency = efficiency
