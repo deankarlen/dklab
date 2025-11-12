@@ -155,7 +155,7 @@ class SimulatedLifetimeExperiment(LifetimeExperiment):
         return bf * uniform_pdf + (1. - bf) * special_pdf
 
     def get_log_likelihood(self, times):
-        log_lik = -np.Inf
+        log_lik = -np.inf
         zero_pdf = False
 
         sum_log_pdf = 0.
